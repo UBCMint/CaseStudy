@@ -22,6 +22,7 @@ END_TIME_SEC = 4.5 * 60
 # Which frequency bands we want to calculate average power for.
 BAND_FREQUENCIES = {
     'theta': [3.5, 7.5],
+    'alpha': [7.5, 13.0],
     'beta': [13.0, 30.0],
 }
 
@@ -65,6 +66,11 @@ def bandStrength(pathAndBads):
     return result
 
 
+# Utility to convert e.g. T013_D001_V00_2017_05_16_Emily-Resting-30Hzfilt.edf to Emily-Resting
+def shortName(longName):
+    first = longName.find('-')
+    return longName[longName.rfind('_')+1:longName[first+1:].find('-')+ first + 1]
+
 def powerBandAnalysis(badMapping, nThreads=4):
     """
     Given a mapping path -> list of bad channels for that data, load all the path
@@ -83,12 +89,13 @@ def powerBandAnalysis(badMapping, nThreads=4):
     ax = viz.cleanSubplots(2, 2)
     ax[0, 0].set_title('theta')
     ax[1, 0].set_title('beta')
-    ax[0, 1].set_title('theta/beta')
-    ax[1, 1].set_title('legend')
+    ax[0, 1].set_title('TBR')
+    ax[1, 1].set_title('TBR distribution')
+    ax[1, 1].get_xaxis().set_visible(True)
 
     for i, result in enumerate(results):
         dot = '-' if i % 2 == 0 else '--' # line for Focus, dash for rest
-        col = [(1,0,0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 0, 1), (0, 1, 1)][i // 2] # One colour per person
+        col = [(1,0,0), (0, 1, 0), (0, 0, 1), (.9, .7, 0), (.5, 0, .5), (0, .5, .5)][i // 2] # One colour per person
         t, b = result['theta'], result['beta']
         if i == 0:
             lt = len(t)
@@ -98,8 +105,9 @@ def powerBandAnalysis(badMapping, nThreads=4):
         ax[0, 0].plot(t, c=col, ls=dot)
         ax[1, 0].plot(b, c=col, ls=dot)
         ax[0, 1].plot(movingAverage(t / b, 20), c=col, ls=dot)
-        # Fourth plot just for legend
-        ax[1, 1].plot(t[0], c=col, ls=dot, label=result['path'])
+        # TBR distribution
+        hist, edges = np.histogram(t / b, normed=True)
+        ax[1, 1].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=shortName(result['path']))
 
     ax[1, 1].legend()
     plt.show()
