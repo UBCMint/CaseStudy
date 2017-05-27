@@ -16,9 +16,8 @@ import viz
 PICKS = ['EEG 10', 'EEG 12', 'EEG 18', 'EEG 8', 'EEG 6', 'EEG 5', 'EEG 60', 'EEG 58'] # None = all non-bad channels.
 # Although EEG 8 is technically AFz, but is the closest to FpZ
 
-SECONDS_PER_CHUNK = 60 # seconds in each analysis window
-SECONDS_PER_STEP  = 10 # offset between window starts.
-BORDER_OFFSET_SEC = 60 # Seconds dropped at the start/end of each recording.
+START_TIME_SEC = 1
+END_TIME_SEC = 4.5 * 60
 
 # Which frequency bands we want to calculate average power for.
 BAND_FREQUENCIES = {
@@ -26,32 +25,30 @@ BAND_FREQUENCIES = {
     'beta': [13.0, 30.0],
 }
 
+# Take a rolling average of the last n values in a
+def movingAverage(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
-def bandPower(raw, fMin, fMax):
-    """
-    Given raw signal, and frequency bounds, chops the signal into windows and returns the
-    average power within those bands for each window.
-    """
-    # Convert seconds to samples:
-    sampleRate = int(raw.info['sfreq'])
-    samplesPerChunk = SECONDS_PER_CHUNK * sampleRate
-    samplesPerStep  = SECONDS_PER_STEP  * sampleRate
-    startSample     = BORDER_OFFSET_SEC * sampleRate
-    endSample       = raw._data.shape[1] - BORDER_OFFSET_SEC * sampleRate
+def calcBandPowers(raw):
+    data = raw._data
+    # Pick needed rows
+    if PICKS is not None:
+        pickIDs = mne.pick_types(raw.info, eeg=True, selection=PICKS)
+        data = np.take(data, pickIDs, axis=0)
 
-    # which channels we are using...
-    pickIDs = None if PICKS is None else mne.pick_types(raw.info, eeg=True, selection=PICKS)
+    # STFT for frequencies and powers
+    freq, t, stft = scipy.signal.stft(data, fs=int(raw.info['sfreq']))
+    powers = np.abs(stft)
 
-    powers = []
-    for at in range(startSample, endSample, samplesPerStep):
-        # Uncomment to get progress updates:
-        # print "%0.02f %%" % (100 * (at - startSample) * 1.0 / (endSample - startSample))
-        # convert samples back to time:
-        tMin, tMax = at * 1.0 / sampleRate, (at + samplesPerChunk) * 1.0 / sampleRate
-        psds, freqs = mne.time_frequency.psd_multitaper(raw, fmin=fMin, fmax=fMax, tmin=tMin, tmax=tMax, picks=pickIDs)
-        # Note: just averaged, so needs to be scaled if integral is desired.
-        powers.append(np.mean(psds))
-    return np.array(powers)
+    result = {}
+    for bandID, bandHz in BAND_FREQUENCIES.iteritems():
+        # Find the average power for the frequencies in the band
+        fPick = np.logical_and(bandHz[0] < freq, freq < bandHz[1])
+        meanPower = np.mean(powers[:, fPick, :], axis=(0, 1))
+        result[bandID] = movingAverage(meanPower, 20)
+    return result
 
 
 def bandStrength(pathAndBads):
@@ -60,12 +57,11 @@ def bandStrength(pathAndBads):
     """
     path, bads = pathAndBads[0], pathAndBads[1]
     raw = mne.io.read_raw_edf("data/" + path, preload=True)
+    raw = raw.crop(tmin=START_TIME_SEC, tmax=END_TIME_SEC)
     raw.info['bads'] = bads
 
-    result = {'path': path}
-    for bandID, bandHz in BAND_FREQUENCIES.iteritems():
-        # TODO: calculate all in a single call, by splitting up one psd result.
-        result[bandID] = bandPower(raw, bandHz[0], bandHz[1])
+    result = calcBandPowers(raw)
+    result['path'] = path
     return result
 
 
@@ -94,9 +90,14 @@ def powerBandAnalysis(badMapping, nThreads=4):
         dot = '-' if i % 2 == 0 else '--' # line for Focus, dash for rest
         col = [(1,0,0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 0, 1), (0, 1, 1)][i // 2] # One colour per person
         t, b = result['theta'], result['beta']
+        if i == 0:
+            lt = len(t)
+            ax[0,0].set_xlim([0, len(t)])
+            ax[1,0].set_xlim([0, len(t)])
+
         ax[0, 0].plot(t, c=col, ls=dot)
         ax[1, 0].plot(b, c=col, ls=dot)
-        ax[0, 1].plot(t / b, c=col, ls=dot)
+        ax[0, 1].plot(movingAverage(t / b, 20), c=col, ls=dot)
         # Fourth plot just for legend
         ax[1, 1].plot(t[0], c=col, ls=dot, label=result['path'])
 
@@ -119,4 +120,4 @@ if __name__ == '__main__':
         'T013_D010_V00_2017_05_15_Yana-Focus-30Hzfilt.edf': ['STI 014', 'EEG 18', 'EEG 56', 'EEG VREF'],
     }, nThreads=8)
     # """
-    # viz.showEdfSignal('Pat-Rest.edf') # Use this to pick bad channels above.
+    # viz.showEdfSignal('data/T013_D006_V00_2017_05_15_Patrick-Focus-30Hzfilt.edf') # Use this to pick bad channels above.
