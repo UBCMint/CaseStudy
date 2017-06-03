@@ -102,11 +102,11 @@ def powerBandAnalysis(badMapping, nThreads=4):
             ax[0,0].set_xlim([0, len(t)])
             ax[1,0].set_xlim([0, len(t)])
 
-        ax[0, 0].plot(t, c=col, ls=dot)
-        ax[1, 0].plot(b, c=col, ls=dot)
-        ax[0, 1].plot(movingAverage(t / b, 20), c=col, ls=dot)
+        ax[0, 0].plot(np.log(t), c=col, ls=dot)
+        ax[1, 0].plot(np.log(b), c=col, ls=dot)
+        ax[0, 1].plot(movingAverage(np.log(t / b), 10), c=col, ls=dot)
         # TBR distribution
-        hist, edges = np.histogram(t / b, normed=True)
+        hist, edges = np.histogram(np.log(t / b), normed=True)
         ax[1, 1].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=shortName(result['path']))
 
     ax[1, 1].legend()
