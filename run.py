@@ -69,7 +69,7 @@ def bandStrength(pathAndBads):
 # Utility to convert e.g. T013_D001_V00_2017_05_16_Emily-Resting-30Hzfilt.edf to Emily-Resting
 def shortName(longName):
     first = longName.find('-')
-    return longName[longName.rfind('_')+1:longName[first+1:].find('-')+ first + 1]
+    return longName[longName.rfind('_') + 1:longName[first+1:].find('-') + first + 1]
 
 def powerBandAnalysis(badMapping, nThreads=4):
     """
