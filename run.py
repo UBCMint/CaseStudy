@@ -16,7 +16,7 @@ import viz
 PICKS = ['EEG 10', 'EEG 12', 'EEG 18', 'EEG 8', 'EEG 6', 'EEG 5', 'EEG 60', 'EEG 58'] # None = all non-bad channels.
 # Although EEG 8 is technically AFz, but is the closest to FpZ
 
-START_TIME_SEC = 1
+START_TIME_SEC = 1 * 60
 END_TIME_SEC = 4.5 * 60
 
 # Which frequency bands we want to calculate average power for.
@@ -48,7 +48,7 @@ def calcBandPowers(raw):
         # Find the average power for the frequencies in the band
         fPick = np.logical_and(bandHz[0] < freq, freq < bandHz[1])
         meanPower = np.mean(powers[:, fPick, :], axis=(0, 1))
-        result[bandID] = movingAverage(meanPower, 20)
+        result[bandID] = movingAverage(meanPower, 10)
     return result
 
 
@@ -86,12 +86,13 @@ def powerBandAnalysis(badMapping, nThreads=4):
     print badArray
     results = p.map(bandStrength, badArray)
 
-    ax = viz.cleanSubplots(2, 2)
-    ax[0, 0].set_title('theta')
-    ax[1, 0].set_title('beta')
-    ax[0, 1].set_title('TBR')
-    ax[1, 1].set_title('TBR distribution')
-    ax[1, 1].get_xaxis().set_visible(True)
+    ax = viz.cleanSubplots(2, 3)
+    ax[0, 0].set_title('log(Theta power)')
+    ax[0, 1].set_title('log(Beta power)')
+    ax[0, 2].set_title('log(Theta/Beta ratio)')
+    ax[1, 0].set_title('Distribution of log(Theta)')
+    ax[1, 1].set_title('Distribution of log(Beta)')
+    ax[1, 2].set_title('Distribution of log(T/B)')
 
     for i, result in enumerate(results):
         dot = '-' if i % 2 == 0 else '--' # line for Focus, dash for rest
@@ -100,16 +101,21 @@ def powerBandAnalysis(badMapping, nThreads=4):
         if i == 0:
             lt = len(t)
             ax[0,0].set_xlim([0, len(t)])
-            ax[1,0].set_xlim([0, len(t)])
+            ax[0,1].set_xlim([0, len(t)])
+            ax[0,2].set_xlim([0, len(t)])
 
         ax[0, 0].plot(np.log(t), c=col, ls=dot)
-        ax[1, 0].plot(np.log(b), c=col, ls=dot)
-        ax[0, 1].plot(movingAverage(np.log(t / b), 10), c=col, ls=dot)
+        ax[0, 1].plot(np.log(b), c=col, ls=dot)
+        ax[0, 2].plot(np.log(t / b), c=col, ls=dot)
         # TBR distribution
+        hist, edges = np.histogram(np.log(t), normed=True)
+        ax[1, 0].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=shortName(result['path']))
+        hist, edges = np.histogram(np.log(b), normed=True)
+        ax[1, 1].plot(movingAverage(edges, 2), hist, c=col, ls=dot)
         hist, edges = np.histogram(np.log(t / b), normed=True)
-        ax[1, 1].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=shortName(result['path']))
+        ax[1, 2].plot(movingAverage(edges, 2), hist, c=col, ls=dot)
 
-    ax[1, 1].legend()
+    ax[1, 0].legend()
     plt.show()
 
 
