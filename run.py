@@ -66,11 +66,6 @@ def bandStrength(pathAndBads):
     return result
 
 
-# Utility to convert e.g. T013_D001_V00_2017_05_16_Emily-Resting-30Hzfilt.edf to Emily-Resting
-def shortName(longName):
-    first = longName.find('-')
-    return longName[longName.rfind('_') + 1:longName[first+1:].find('-') + first + 1]
-
 def powerBandAnalysis(badMapping, nThreads=4):
     """
     Given a mapping path -> list of bad channels for that data, load all the path
@@ -109,7 +104,7 @@ def powerBandAnalysis(badMapping, nThreads=4):
         ax[0, 2].plot(np.log(t / b), c=col, ls=dot)
         # TBR distribution
         hist, edges = np.histogram(np.log(t), normed=True)
-        ax[1, 0].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=shortName(result['path']))
+        ax[1, 0].plot(movingAverage(edges, 2), hist, c=col, ls=dot, label=viz.shortName(result['path']))
         hist, edges = np.histogram(np.log(b), normed=True)
         ax[1, 1].plot(movingAverage(edges, 2), hist, c=col, ls=dot)
         hist, edges = np.histogram(np.log(t / b), normed=True)
