@@ -31,4 +31,6 @@ This will bring up eight live charts, being a time series and histogram of log(T
 ![Live TBR Output](https://raw.githubusercontent.com/UBCMint/CaseStudy/master/output/liveStreamTBR.png)
 
 #### Wavelet Synchronicity
-In progress...
+TODO: Describe. For now, results:
+
+![Synchronicity results](https://raw.githubusercontent.com/UBCMint/CaseStudy/master/output/synchroResults.png)
